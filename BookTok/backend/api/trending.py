@@ -1,5 +1,6 @@
 """Trending books endpoint."""
 import logging
+from datetime import datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends, Query
@@ -40,16 +41,28 @@ def _fetch_cover(title, author):
     return None
 
 
-@router.get("/top-books")
-def top_books(
+def _add_covers(books):
+    for book in books:
+        book["cover_url"] = _fetch_cover(book["title"], book["author"])
+    return books
+
+
+@router.get("/this-month")
+def this_month(
     limit: int = Query(15, le=50),
     db: Session = Depends(get_db),
 ):
-    """Return the top trending books with cover images from Open Library."""
+    """Return popular books from the last 30 days."""
+    cutoff = datetime.now() - timedelta(days=30)
+    posts = db.query(RawPost).filter(RawPost.posted_at >= cutoff).all()
+    return _add_covers(extract_trending_books(posts, limit=limit))
+
+
+@router.get("/all-time")
+def all_time(
+    limit: int = Query(15, le=50),
+    db: Session = Depends(get_db),
+):
+    """Return all-time popular BookTok books."""
     posts = db.query(RawPost).all()
-    books = extract_trending_books(posts, limit=limit)
-
-    for book in books:
-        book["cover_url"] = _fetch_cover(book["title"], book["author"])
-
-    return books
+    return _add_covers(extract_trending_books(posts, limit=limit))
