@@ -183,6 +183,140 @@ header h1 {
   color: #535bf2;
 }
 
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.tab {
+  background: transparent;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.6rem 1.5rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.tab:hover { color: #fff; border-color: #555; }
+.tab.active { background: #646cff; color: #fff; border-color: #646cff; }
+
+/* Trending books */
+.trending-section h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.books-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.book-card {
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  transition: border-color 0.2s;
+}
+
+.book-card:hover { border-color: #646cff; }
+
+.book-rank {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #646cff;
+  min-width: 50px;
+  text-align: center;
+}
+
+.book-card:nth-child(1) .book-rank { color: #ffd700; }
+.book-card:nth-child(2) .book-rank { color: #c0c0c0; }
+.book-card:nth-child(3) .book-rank { color: #cd7f32; }
+
+.book-cover {
+  width: 60px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.book-cover-placeholder {
+  width: 60px;
+  height: 90px;
+  background: #2a2a3a;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.book-info {
+  flex: 1;
+}
+
+.book-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.book-author {
+  margin: 0 0 0.5rem;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.book-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+}
+
+.book-mentions {
+  color: #646cff;
+  font-weight: 600;
+}
+
+.book-platforms {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.book-score {
+  text-align: center;
+  min-width: 70px;
+}
+
+.score-number {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #646cff;
+}
+
+.score-label {
+  display: block;
+  font-size: 0.7rem;
+  color: #666;
+  text-transform: uppercase;
+}
+
 .empty {
   text-align: center;
   color: #666;
