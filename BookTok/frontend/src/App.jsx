@@ -102,7 +102,7 @@ function App() {
 
       {tab === "trending" && (
         <div className="trending-section">
-          <h2>Top 15 Trending Books</h2>
+          <h2>Popular Books This Month</h2>
           <div className="books-list">
             {trendingBooks.map((book, i) => (
               <div key={book.title} className="book-card">
