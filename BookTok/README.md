@@ -18,7 +18,7 @@ BookTok is the massive book community on TikTok with over 200 billion views. But
 
 - **Frontend:** React
 - **Backend:** Python (FastAPI)
-- **Database:** PostgreSQL
+- **Database:** MariaDB (MySQL) on Plesk
 - **AI Pipeline:** OpenAI/Claude API for book extraction, trope tagging, and sentiment analysis
 - **Data Sources:** TikTok Research API, Reddit API
 - **Scheduling:** Daily data collection via cron jobs

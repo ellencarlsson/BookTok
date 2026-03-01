@@ -114,7 +114,7 @@ Per book, per day:
 - [ ] Apply for TikTok Research API access
 - [ ] Set up Reddit API connection
 - [ ] Build LLM processing pipeline (book extraction + trope tagging)
-- [ ] Set up PostgreSQL database with initial schema
+- [ ] Set up MariaDB database on Plesk with initial schema
 - [ ] Create daily cron job for data collection
 - [ ] Seed database with initial book data from Google Books API
 
