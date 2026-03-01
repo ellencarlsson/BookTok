@@ -97,6 +97,27 @@ CREATE TABLE reading_lists (
     INDEX idx_user (user_id)
 ) ENGINE=InnoDB;
 
+-- Raw social media posts (before AI processing)
+CREATE TABLE raw_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    platform VARCHAR(50) NOT NULL,
+    platform_id VARCHAR(200) NOT NULL UNIQUE,
+    author VARCHAR(200),
+    text TEXT,
+    hashtags JSON,
+    view_count INT DEFAULT 0,
+    like_count INT DEFAULT 0,
+    comment_count INT DEFAULT 0,
+    share_count INT DEFAULT 0,
+    url VARCHAR(1000),
+    posted_at TIMESTAMP NULL,
+    collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processed TINYINT DEFAULT 0,
+    INDEX idx_platform (platform),
+    INDEX idx_processed (processed),
+    INDEX idx_collected (collected_at)
+) ENGINE=InnoDB;
+
 -- Reading list <-> Book (many-to-many)
 CREATE TABLE reading_list_books (
     reading_list_id INT NOT NULL,
