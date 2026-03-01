@@ -1,0 +1,191 @@
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  font-size: 2.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.subtitle {
+  color: #888;
+  font-size: 1rem;
+}
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.stat {
+  background: #1e1e2e;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  text-align: center;
+  min-width: 120px;
+  border: 1px solid #333;
+}
+
+.stat.tiktok { border-color: #ff0050; }
+.stat.reddit { border-color: #ff4500; }
+.stat.youtube { border-color: #ff0000; }
+
+.stat-number {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.filter-group select {
+  background: #1e1e2e;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.refresh-btn {
+  background: #646cff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.refresh-btn:hover { background: #535bf2; }
+.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Posts grid */
+.posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+.post-card {
+  background: #1e1e2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: border-color 0.2s;
+}
+
+.post-card:hover {
+  border-color: #646cff;
+}
+
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.platform-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.platform-badge.tiktok { background: #ff005020; color: #ff0050; }
+.platform-badge.reddit { background: #ff450020; color: #ff4500; }
+.platform-badge.youtube { background: #ff000020; color: #ff0000; }
+
+.post-author {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.post-text {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #ddd;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.post-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.post-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.post-date {
+  color: #666;
+}
+
+.post-link {
+  color: #646cff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.post-link:hover {
+  color: #535bf2;
+}
+
+.empty {
+  text-align: center;
+  color: #666;
+  padding: 3rem;
+  font-size: 1.1rem;
+}
