@@ -26,7 +26,18 @@ BookTok is the massive book community on TikTok with over 200 billion views. But
 ## Architecture
 
 ```
-[TikTok API]  ──→  AI Pipeline  ──→  Book Extraction    ──┐
-[Reddit API]  ──→  AI Pipeline  ──→  Trope Tagging       ──┼──→  Database  ──→  React Frontend
-[Instagram]   ──→  AI Pipeline  ──→  Sentiment Analysis  ──┘
+┌─────────────────────────────────────────────────────┐
+│  Python (FastAPI) — Backend + AI Pipeline            │
+│                                                      │
+│  [Cron daily]                                        │
+│    TikTok API  ──→  LLM Analysis  ──→  MariaDB      │
+│    Reddit API  ──→  LLM Analysis  ──→  MariaDB      │
+│                                                      │
+│  [REST API]                                          │
+│    /api/books, /api/tropes, /api/trending            │
+│    /api/reviews, /api/lists, /api/search             │
+└──────────────────────┬──────────────────────────────┘
+                       │
+                       ▼
+              React Frontend
 ```
