@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 
 # --- Collection rules ---
 
+MONTH_NAMES = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+]
+
 BOOKTOK_HASHTAGS = [
     "BookTok",
     "bookrecs",
@@ -28,6 +33,12 @@ BOOKTOK_HASHTAGS = [
     "BookTokChallenge",
     "enemiestolovers",
 ]
+
+
+def _get_monthly_hashtags():
+    """Generate monthly TBR hashtags based on current month."""
+    month = MONTH_NAMES[datetime.now().month - 1]
+    return [f"{month}tbr", f"{month}bookhaul", f"{month}wrapup"]
 
 VIDEOS_PER_HASHTAG = 50
 MIN_VIEWS = 2_000
@@ -48,7 +59,8 @@ async def collect_tiktok_data():
                 sleep_after=3,
             )
 
-            for tag_name in BOOKTOK_HASHTAGS:
+            all_hashtags = BOOKTOK_HASHTAGS + _get_monthly_hashtags()
+            for tag_name in all_hashtags:
                 logger.info("Collecting videos for #%s", tag_name)
                 saved, skipped = await _collect_hashtag(api, db, tag_name)
                 total_saved += saved
