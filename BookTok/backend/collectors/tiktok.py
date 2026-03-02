@@ -8,10 +8,16 @@ from TikTokApi import TikTokApi
 from core.config import TIKTOK_MS_TOKEN
 from core.database import SessionLocal
 from models.raw_post import RawPost
+from services.book_extractor import extract_books_from_text
 
 logger = logging.getLogger(__name__)
 
 # --- Collection rules ---
+
+MONTH_NAMES = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+]
 
 BOOKTOK_HASHTAGS = [
     "BookTok",
@@ -29,8 +35,14 @@ BOOKTOK_HASHTAGS = [
     "enemiestolovers",
 ]
 
-VIDEOS_PER_HASHTAG = 50
-MIN_VIEWS = 50_000
+
+def _get_monthly_hashtags():
+    """Generate monthly TBR hashtags based on current month."""
+    month = MONTH_NAMES[datetime.now().month - 1]
+    return [f"{month}tbr", f"{month}bookhaul", f"{month}wrapup"]
+
+VIDEOS_PER_HASHTAG = 200
+MIN_VIEWS = 2_000
 MAX_AGE_DAYS = 30
 
 
@@ -48,7 +60,8 @@ async def collect_tiktok_data():
                 sleep_after=3,
             )
 
-            for tag_name in BOOKTOK_HASHTAGS:
+            all_hashtags = BOOKTOK_HASHTAGS + _get_monthly_hashtags()
+            for tag_name in all_hashtags:
                 logger.info("Collecting videos for #%s", tag_name)
                 saved, skipped = await _collect_hashtag(api, db, tag_name)
                 total_saved += saved
@@ -89,7 +102,6 @@ async def _collect_hashtag(api, db, tag_name):
                 skipped["no_text"] += 1
                 continue
 
-            # Filter: skip old videos
             posted_at = None
             if create_time:
                 posted_at = datetime.fromtimestamp(int(create_time))
@@ -116,11 +128,17 @@ async def _collect_hashtag(api, db, tag_name):
             author_info = data.get("author", {})
             hashtags = [h.get("hashtagName", "") for h in data.get("challenges", [])]
 
+            # Combine description + hashtags for better text matching
+            hashtag_text = " ".join(f"#{h}" for h in hashtags if h)
+            full_text = f"{desc}\n{hashtag_text}".strip()
+
+            books = extract_books_from_text(full_text)
+
             raw_post = RawPost(
                 platform="tiktok",
                 platform_id=video_id,
                 author=author_info.get("uniqueId", ""),
-                text=desc,
+                text=full_text,
                 hashtags=hashtags,
                 view_count=view_count,
                 like_count=stats.get("diggCount", 0),
@@ -128,6 +146,8 @@ async def _collect_hashtag(api, db, tag_name):
                 share_count=stats.get("shareCount", 0),
                 url=f"https://www.tiktok.com/@{author_info.get('uniqueId', '')}/video/{video_id}",
                 posted_at=posted_at,
+                extracted_books=books,
+                processed=1,
             )
             db.add(raw_post)
             saved += 1
