@@ -116,11 +116,15 @@ async def _collect_hashtag(api, db, tag_name):
             author_info = data.get("author", {})
             hashtags = [h.get("hashtagName", "") for h in data.get("challenges", [])]
 
+            # Combine description + hashtags for better text matching
+            hashtag_text = " ".join(f"#{h}" for h in hashtags if h)
+            full_text = f"{desc}\n{hashtag_text}".strip()
+
             raw_post = RawPost(
                 platform="tiktok",
                 platform_id=video_id,
                 author=author_info.get("uniqueId", ""),
-                text=desc,
+                text=full_text,
                 hashtags=hashtags,
                 view_count=view_count,
                 like_count=stats.get("diggCount", 0),

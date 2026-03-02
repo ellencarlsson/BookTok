@@ -184,9 +184,9 @@ def extract_books_from_text(text):
                 seen.add(title.lower())
                 found.append({"title": title, "author": author})
 
-    # Pattern: "Title by Author"
+    # Pattern: "Title by Author" — stop at dash, comma, newline, or hashtag
     by_matches = re.findall(
-        r'["\']?([A-Z][A-Za-z\s\'\-&:]+?)["\']?\s+by\s+([A-Z][A-Za-z\s.\-&]+?)(?:[,.\s]{2,}|\n|$)',
+        r'["\']?([A-Z][A-Za-z\s\'\-&:]+?)["\']?\s+by\s+([A-Z][A-Za-z\s.]+?)(?:\s*[-,#\n]|$)',
         text,
     )
     for title, author in by_matches:
