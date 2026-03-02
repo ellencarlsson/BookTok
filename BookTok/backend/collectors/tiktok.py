@@ -8,6 +8,7 @@ from TikTokApi import TikTokApi
 from core.config import TIKTOK_MS_TOKEN
 from core.database import SessionLocal
 from models.raw_post import RawPost
+from services.book_extractor import extract_books_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,8 @@ async def _collect_hashtag(api, db, tag_name):
             hashtag_text = " ".join(f"#{h}" for h in hashtags if h)
             full_text = f"{desc}\n{hashtag_text}".strip()
 
+            books = extract_books_from_text(full_text)
+
             raw_post = RawPost(
                 platform="tiktok",
                 platform_id=video_id,
@@ -143,6 +146,8 @@ async def _collect_hashtag(api, db, tag_name):
                 share_count=stats.get("shareCount", 0),
                 url=f"https://www.tiktok.com/@{author_info.get('uniqueId', '')}/video/{video_id}",
                 posted_at=posted_at,
+                extracted_books=books,
+                processed=1,
             )
             db.add(raw_post)
             saved += 1

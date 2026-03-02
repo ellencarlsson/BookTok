@@ -209,6 +209,7 @@ KNOWN_BOOKS = {
     "good spirits": ("Good Spirits", "B.K. Borison"),
     "we'll prescribe you a cat": ("We'll Prescribe You a Cat", "Syou Ishida"),
     "playground": ("Playground", "Aron Beauregard"),
+    "stalingrad": ("Stalingrad", "Antony Beevor"),
 }
 
 # Short abbreviations that need word boundary matching to avoid false positives
@@ -245,14 +246,24 @@ def extract_books_from_text(text):
         r'["\']?([A-Z][A-Za-z\s\'\-&:]+?)["\']?\s+by\s+([A-Z][A-Za-z\s.]+?)(?:\s*[-,#\n]|$)',
         text,
     )
+    noise_starts = {
+        "your", "my", "its", "this", "that", "just", "also", "then",
+        "from", "with", "have", "been", "will", "would", "could",
+        "should", "really", "currently", "recently", "finally",
+        "honestly", "literally", "definitely", "absolutely",
+        "started", "finished", "reading", "loved", "read",
+        "book", "books", "series",
+    }
     for title, author in by_matches:
         title = title.strip().rstrip(" -")
         author = author.strip().rstrip(" -")
+        first_word = title.split()[0].lower() if title.split() else ""
         if (
             len(title) > 3
             and len(title) <= 60
             and len(title.split()) <= 6
             and len(author) > 3
+            and first_word not in noise_starts
             and title.lower() not in seen
         ):
             seen.add(title.lower())
@@ -274,8 +285,10 @@ def extract_trending_books(posts, limit=15):
     })
 
     for post in posts:
-        text = post.get("text", "") if isinstance(post, dict) else (post.text or "")
-        books = extract_books_from_text(text)
+        if isinstance(post, dict):
+            books = post.get("extracted_books") or []
+        else:
+            books = post.extracted_books or []
 
         for book in books:
             title = book["title"]

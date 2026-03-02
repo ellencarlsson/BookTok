@@ -7,6 +7,7 @@ import httpx
 
 from core.database import SessionLocal
 from models.raw_post import RawPost
+from services.book_extractor import extract_books_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,8 @@ def _collect_subreddit(db, subreddit):
                 created_utc = post.get("created_utc")
                 posted_at = datetime.fromtimestamp(created_utc) if created_utc else None
 
+                books = extract_books_from_text(text)
+
                 raw_post = RawPost(
                     platform="reddit",
                     platform_id=post_id,
@@ -113,6 +116,8 @@ def _collect_subreddit(db, subreddit):
                     share_count=0,
                     url=f"https://www.reddit.com{permalink}",
                     posted_at=posted_at,
+                    extracted_books=books,
+                    processed=1,
                 )
                 db.add(raw_post)
                 saved += 1
@@ -179,6 +184,8 @@ def _collect_comments(db, subreddit, post_id, permalink):
             created_utc = comment.get("created_utc")
             posted_at = datetime.fromtimestamp(created_utc) if created_utc else None
 
+            books = extract_books_from_text(body)
+
             raw_post = RawPost(
                 platform="reddit",
                 platform_id=f"c_{comment_id}",
@@ -191,6 +198,8 @@ def _collect_comments(db, subreddit, post_id, permalink):
                 share_count=0,
                 url=f"https://www.reddit.com{permalink}{comment_id}/",
                 posted_at=posted_at,
+                extracted_books=books,
+                processed=1,
             )
             db.add(raw_post)
             saved += 1
