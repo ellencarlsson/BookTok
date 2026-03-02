@@ -41,7 +41,7 @@ def _fetch_cover(title, author):
     return None
 
 
-def _query_trending(db, limit, platform=None, cutoff=None):
+def _query_trending(db, limit, platform=None, platform_prefix=None, cutoff=None):
     """Query trending books from the database."""
     query = (
         db.query(
@@ -58,6 +58,8 @@ def _query_trending(db, limit, platform=None, cutoff=None):
         query = query.filter(TrendingData.date >= cutoff)
     if platform:
         query = query.filter(TrendingData.platform == platform)
+    elif platform_prefix:
+        query = query.filter(TrendingData.platform.like(f"{platform_prefix}%"))
 
     rows = (
         query
@@ -94,9 +96,12 @@ def this_month(
 @router.get("/websites")
 def websites(
     limit: int = Query(15, le=50),
+    source: str = Query(None),
     db: Session = Depends(get_db),
 ):
     """Return BookTok books from curated website sources."""
-    return _query_trending(db, limit, platform="websites")
+    if source:
+        return _query_trending(db, limit, platform=f"websites:{source}")
+    return _query_trending(db, limit, platform_prefix="websites:")
 
 

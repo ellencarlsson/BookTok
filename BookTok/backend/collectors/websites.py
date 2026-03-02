@@ -2,7 +2,6 @@
 import logging
 import re
 import time
-from collections import defaultdict
 from datetime import date
 
 import httpx
@@ -104,88 +103,71 @@ def scrape_hudson_booktok():
 
 
 def collect_website_data():
-    """Scrape all BookTok sources and aggregate book appearances."""
-    book_sources = defaultdict(lambda: {
-        "title": "",
-        "author": "",
-        "sources": set(),
-    })
-
+    """Scrape all BookTok sources and save per-source data."""
     scrapers = [
-        ("Goodreads BookTok", scrape_goodreads_booktok),
-        ("Hudson Booksellers", scrape_hudson_booktok),
+        ("goodreads-booktok", "Goodreads BookTok", scrape_goodreads_booktok),
+        ("hudson-booksellers", "Hudson Booksellers", scrape_hudson_booktok),
     ]
 
-    for name, scraper in scrapers:
+    total_saved = 0
+    for source_id, label, scraper in scrapers:
         try:
-            logger.info("Scraping %s", name)
+            logger.info("Scraping %s", label)
             books = scraper()
-            logger.info("%s: found %d books", name, len(books))
-            for book in books:
-                key = book["title"].lower()
-                agg = book_sources[key]
-                agg["title"] = book["title"]
-                if book["author"] != "Unknown" or not agg["author"]:
-                    agg["author"] = book["author"]
-                agg["sources"].add(name)
+            logger.info("%s: found %d books", label, len(books))
+            saved = _save_source(source_id, books)
+            total_saved += saved
         except Exception:
-            logger.exception("Failed to scrape %s", name)
+            logger.exception("Failed to scrape %s", label)
         time.sleep(REQUEST_DELAY)
 
-    saved = _save_aggregated(book_sources)
-    logger.info(
-        "Websites done: found %d unique books, saved %d",
-        len(book_sources), saved,
-    )
-    return saved
+    logger.info("Websites done: saved %d entries", total_saved)
+    return total_saved
 
 
-def _save_aggregated(book_sources):
-    """Save aggregated book data — score = number of sources."""
-    if not book_sources:
+def _save_source(source_id, books):
+    """Save books from a single source with platform='websites:{source_id}'."""
+    if not books:
         return 0
 
     db = SessionLocal()
     saved = 0
     today = date.today()
+    platform = f"websites:{source_id}"
 
     try:
-        for stats in book_sources.values():
-            book = (
-                db.query(Book)
-                .filter_by(title=stats["title"], author=stats["author"])
-                .first()
-            )
+        for entry in books:
+            title = entry["title"]
+            author = entry["author"]
+
+            book = db.query(Book).filter_by(title=title, author=author).first()
             if not book:
-                book = Book(title=stats["title"], author=stats["author"])
+                book = Book(title=title, author=author)
                 db.add(book)
                 db.flush()
 
-            score = len(stats["sources"])
-
             existing = (
                 db.query(TrendingData)
-                .filter_by(book_id=book.id, date=today, platform="websites")
+                .filter_by(book_id=book.id, date=today, platform=platform)
                 .first()
             )
             if existing:
-                existing.mention_count = score
-                existing.trending_score = score
+                existing.mention_count = 1
+                existing.trending_score = 1
             else:
                 db.add(TrendingData(
                     book_id=book.id,
                     date=today,
-                    mention_count=score,
-                    trending_score=score,
-                    platform="websites",
+                    mention_count=1,
+                    trending_score=1,
+                    platform=platform,
                 ))
-
             saved += 1
 
         db.commit()
     except Exception:
         db.rollback()
-        logger.exception("Failed to save website data")
+        logger.exception("Failed to save %s data", source_id)
     finally:
         db.close()
 

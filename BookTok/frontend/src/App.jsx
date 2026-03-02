@@ -4,23 +4,30 @@ import "./App.css";
 const API_BASE = "http://localhost:8000/api";
 const TABS = ["social", "websites"];
 const PLATFORMS = ["all", "reddit", "instagram", "tiktok"];
+const SOURCES = [
+  { id: "all", label: "All Sources" },
+  { id: "goodreads-booktok", label: "Goodreads BookTok" },
+  { id: "hudson-booksellers", label: "Hudson Booksellers" },
+];
 
 function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("social");
   const [platform, setPlatform] = useState("all");
+  const [source, setSource] = useState("all");
 
   useEffect(() => {
     fetchBooks();
-  }, [tab, platform]);
+  }, [tab, platform, source]);
 
   async function fetchBooks() {
     setLoading(true);
     try {
       let url;
       if (tab === "websites") {
-        url = `${API_BASE}/trending/websites?limit=15`;
+        const sourceParam = source !== "all" ? `&source=${source}` : "";
+        url = `${API_BASE}/trending/websites?limit=15${sourceParam}`;
       } else {
         const platformParam = platform !== "all" ? `&platform=${platform}` : "";
         url = `${API_BASE}/trending/this-month?limit=15${platformParam}`;
@@ -73,6 +80,20 @@ function App() {
         </div>
       )}
 
+      {tab === "websites" && (
+        <div className="platform-filters">
+          {SOURCES.map((s) => (
+            <button
+              key={s.id}
+              className={`platform-filter ${source === s.id ? "active" : ""} ${s.id}`}
+              onClick={() => setSource(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="empty">Loading...</p>
       ) : books.length === 0 ? (
@@ -97,13 +118,13 @@ function App() {
                       : `${book.mentions} mentions`}
                   </span>
                 </div>
-                {tab === "social" && (
-                  <div className="book-platforms">
-                    {book.platforms.map((p) => (
-                      <span key={p} className={`platform-badge ${p}`}>{p}</span>
-                    ))}
-                  </div>
-                )}
+                <div className="book-platforms">
+                  {book.platforms.map((p) => (
+                    <span key={p} className={`platform-badge ${p}`}>
+                      {p.replace("websites:", "")}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="book-score">
                 <span className="score-number">{formatNumber(book.score)}</span>
