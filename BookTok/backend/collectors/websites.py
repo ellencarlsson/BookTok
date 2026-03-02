@@ -31,6 +31,7 @@ GOODREADS_PAGES = 3
 def _clean_title(raw):
     """Remove series info and subtitle noise from a title."""
     cleaned = re.sub(r"\s*\([^)]*#\d+[^)]*\)", "", raw)
+    cleaned = re.sub(r"\s*\((Hardcover|Paperback|Kindle Edition|ebook)\)", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r":\s+A\s+(Novel|Memoir|Story)\b.*$", "", cleaned)
     cleaned = re.sub(r":\s+\d+\w*\s+Anniversary.*$", "", cleaned, flags=re.IGNORECASE)
     return cleaned.strip()
@@ -55,7 +56,7 @@ def scrape_goodreads_booktok():
             url = f"https://www.goodreads.com/shelf/show/booktok?page={page}"
             soup = _get(url)
 
-            for item in soup.select(".leftAlignedImage"):
+            for item in soup.select(".elementList"):
                 title_el = item.select_one("a.bookTitle")
                 author_el = item.select_one("a.authorName")
                 if not title_el or not author_el:
