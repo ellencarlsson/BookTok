@@ -40,7 +40,7 @@ def _get_monthly_hashtags():
     month = MONTH_NAMES[datetime.now().month - 1]
     return [f"{month}tbr", f"{month}bookhaul", f"{month}wrapup"]
 
-VIDEOS_PER_HASHTAG = 50
+VIDEOS_PER_HASHTAG = 200
 MIN_VIEWS = 2_000
 MAX_AGE_DAYS = 30
 
