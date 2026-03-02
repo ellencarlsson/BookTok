@@ -25,6 +25,11 @@ HEADERS = {
 
 REQUEST_DELAY = 2
 GOODREADS_PAGES = 3
+OPENLIBRARY_DELAY = 0.5
+JUNK_TITLES = {
+    "view all>", "graphic novels", "guide:james", "phone with covers",
+    "booktok", "new arrivals", "best sellers", "staff picks",
+}
 
 
 def _clean_title(raw):
@@ -34,6 +39,34 @@ def _clean_title(raw):
     cleaned = re.sub(r":\s+A\s+(Novel|Memoir|Story)\b.*$", "", cleaned)
     cleaned = re.sub(r":\s+\d+\w*\s+Anniversary.*$", "", cleaned, flags=re.IGNORECASE)
     return cleaned.strip()
+
+
+def _lookup_author(title):
+    """Look up author via Open Library Search API."""
+    try:
+        resp = httpx.get(
+            "https://openlibrary.org/search.json",
+            params={"title": title, "limit": 1},
+            timeout=10,
+        )
+        docs = resp.json().get("docs", [])
+        if docs:
+            authors = docs[0].get("author_name", [])
+            if authors:
+                return authors[0]
+    except Exception:
+        logger.debug("Open Library lookup failed for: %s", title)
+    return None
+
+
+def _is_junk_title(title):
+    """Filter out non-book titles from Hudson scrape."""
+    lower = title.lower()
+    if lower in JUNK_TITLES:
+        return True
+    if len(title) < 3 or ">" in title:
+        return True
+    return False
 
 
 def _get(url, timeout=15):
@@ -77,7 +110,7 @@ def scrape_goodreads_booktok():
 
 
 def scrape_hudson_booktok():
-    """Scrape Hudson Booksellers BookTok page via img alt texts."""
+    """Scrape Hudson Booksellers BookTok page, enrich with Open Library authors."""
     books = []
     seen = set()
 
@@ -92,10 +125,14 @@ def scrape_hudson_booktok():
                 continue
 
             title = _clean_title(alt)
-            if title.lower() in seen:
+            if not title or title.lower() in seen or _is_junk_title(title):
                 continue
             seen.add(title.lower())
-            books.append({"title": title, "author": "Unknown"})
+
+            author = _lookup_author(title) or "Unknown"
+            logger.debug("Hudson: %s → %s", title, author)
+            books.append({"title": title, "author": author})
+            time.sleep(OPENLIBRARY_DELAY)
     except Exception:
         logger.exception("Failed Hudson BookTok")
 
@@ -142,9 +179,14 @@ def _save_source(source_id, books):
 
             book = db.query(Book).filter_by(title=title, author=author).first()
             if not book:
-                book = Book(title=title, author=author)
-                db.add(book)
-                db.flush()
+                # Check if book exists with "Unknown" author (from previous runs)
+                book = db.query(Book).filter_by(title=title, author="Unknown").first()
+                if book and author != "Unknown":
+                    book.author = author
+                elif not book:
+                    book = Book(title=title, author=author)
+                    db.add(book)
+                    db.flush()
 
             existing = (
                 db.query(TrendingData)
