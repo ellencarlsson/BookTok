@@ -91,3 +91,12 @@ def this_month(
     return _query_trending(db, limit, platform=platform, cutoff=cutoff)
 
 
+@router.get("/websites")
+def websites(
+    limit: int = Query(15, le=50),
+    db: Session = Depends(get_db),
+):
+    """Return BookTok books from curated website sources."""
+    return _query_trending(db, limit, platform="websites")
+
+
