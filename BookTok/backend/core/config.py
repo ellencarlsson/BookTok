@@ -13,3 +13,4 @@ DB_NAME = os.getenv("DB_NAME", "ellen_booktok")
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 TIKTOK_MS_TOKEN = os.getenv("TIKTOK_MS_TOKEN", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

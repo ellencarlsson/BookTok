@@ -4,8 +4,23 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from models.raw_post import RawPost
+from collectors.reddit import collect_reddit_data
+from services.ai_extractor import process_unprocessed_posts
 
 router = APIRouter(prefix="/api/collect", tags=["collect"])
+
+
+@router.post("/reddit")
+def run_reddit_collector():
+    """Trigger Reddit data collection."""
+    count = collect_reddit_data()
+    return {"saved": count}
+
+
+@router.post("/extract-books")
+def extract_books(db: Session = Depends(get_db)):
+    """Run AI extraction on all unprocessed posts."""
+    return process_unprocessed_posts(db)
 
 
 @router.get("/raw-posts")
@@ -24,17 +39,12 @@ def list_raw_posts(
         {
             "id": p.id,
             "platform": p.platform,
-            "platform_id": p.platform_id,
             "author": p.author,
-            "text": p.text,
-            "hashtags": p.hashtags,
-            "view_count": p.view_count,
+            "text": p.text[:200],
             "like_count": p.like_count,
             "comment_count": p.comment_count,
-            "share_count": p.share_count,
             "url": p.url,
             "posted_at": str(p.posted_at) if p.posted_at else None,
-            "collected_at": str(p.collected_at) if p.collected_at else None,
             "processed": p.processed,
         }
         for p in posts
@@ -43,14 +53,14 @@ def list_raw_posts(
 
 @router.get("/stats")
 def collection_stats(db: Session = Depends(get_db)):
-    """Get collection statistics per platform."""
+    """Get collection statistics."""
     total = db.query(RawPost).count()
-    tiktok = db.query(RawPost).filter_by(platform="tiktok").count()
     reddit = db.query(RawPost).filter_by(platform="reddit").count()
-    youtube = db.query(RawPost).filter_by(platform="youtube").count()
+    processed = db.query(RawPost).filter_by(processed=1).count()
     unprocessed = db.query(RawPost).filter_by(processed=0).count()
     return {
         "total": total,
-        "by_platform": {"tiktok": tiktok, "reddit": reddit, "youtube": youtube},
+        "reddit": reddit,
+        "processed": processed,
         "unprocessed": unprocessed,
     }

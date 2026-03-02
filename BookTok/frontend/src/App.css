@@ -25,7 +25,7 @@ header h1 {
   gap: 0.5rem;
   justify-content: center;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 0.75rem;
 }
 
 .tab {
@@ -160,7 +160,40 @@ header h1 {
 
 .platform-badge.tiktok { background: #ff005020; color: #ff0050; }
 .platform-badge.reddit { background: #ff450020; color: #ff4500; }
+.platform-badge.instagram { background: #e1306c20; color: #e1306c; }
 .platform-badge.youtube { background: #ff000020; color: #ff0000; }
+
+/* Platform filters */
+.platform-filters {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.platform-filter {
+  background: transparent;
+  color: #555;
+  border: 1px solid #2a2a3a;
+  border-radius: 20px;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  transition: all 0.2s;
+}
+
+.platform-filter:hover { color: #aaa; border-color: #444; }
+
+.platform-filter.active {
+  font-weight: 600;
+  border-width: 2px;
+}
+
+.platform-filter.active.all { background: #646cff20; color: #646cff; border-color: #646cff; }
+.platform-filter.active.reddit { background: #ff450020; color: #ff4500; border-color: #ff4500; }
+.platform-filter.active.instagram { background: #e1306c20; color: #e1306c; border-color: #e1306c; }
+.platform-filter.active.tiktok { background: #ff005020; color: #ff0050; border-color: #ff0050; }
 
 .book-score {
   text-align: center;
@@ -180,6 +213,23 @@ header h1 {
   color: #666;
   text-transform: uppercase;
 }
+
+.book-tropes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.trope-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  background: #646cff15;
+  color: #a0a4ff;
+  border: 1px solid #646cff30;
+}
+
 
 .empty {
   text-align: center;

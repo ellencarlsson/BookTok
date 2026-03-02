@@ -1,26 +1,41 @@
-"""Extract book titles and authors from raw social media post text."""
+"""Extract trending books from raw posts using text matching."""
 import re
 from collections import defaultdict
 
 
-# Well-known BookTok books for fuzzy matching
 KNOWN_BOOKS = {
+    # Sarah J. Maas
     "a court of thorns and roses": ("A Court of Thorns and Roses", "Sarah J. Maas"),
     "acotar": ("A Court of Thorns and Roses", "Sarah J. Maas"),
     "a court of mist and fury": ("A Court of Mist and Fury", "Sarah J. Maas"),
+    "acomaf": ("A Court of Mist and Fury", "Sarah J. Maas"),
     "a court of wings and ruin": ("A Court of Wings and Ruin", "Sarah J. Maas"),
+    "acowar": ("A Court of Wings and Ruin", "Sarah J. Maas"),
+    "a court of frost and starlight": ("A Court of Frost and Starlight", "Sarah J. Maas"),
+    "acofas": ("A Court of Frost and Starlight", "Sarah J. Maas"),
+    "a court of silver flames": ("A Court of Silver Flames", "Sarah J. Maas"),
+    "acosf": ("A Court of Silver Flames", "Sarah J. Maas"),
+    "throne of glass": ("Throne of Glass", "Sarah J. Maas"),
+    "tog": ("Throne of Glass", "Sarah J. Maas"),
+    "house of earth and blood": ("House of Earth and Blood", "Sarah J. Maas"),
+    "crescent city": ("Crescent City", "Sarah J. Maas"),
+    "cc": ("Crescent City", "Sarah J. Maas"),
+    # Rebecca Yarros
     "fourth wing": ("Fourth Wing", "Rebecca Yarros"),
+    "fw": ("Fourth Wing", "Rebecca Yarros"),
     "iron flame": ("Iron Flame", "Rebecca Yarros"),
     "onyx storm": ("Onyx Storm", "Rebecca Yarros"),
-    "haunting adeline": ("Haunting Adeline", "H.D. Carlton"),
-    "hunting adeline": ("Hunting Adeline", "H.D. Carlton"),
+    # Colleen Hoover
     "it ends with us": ("It Ends with Us", "Colleen Hoover"),
+    "iewu": ("It Ends with Us", "Colleen Hoover"),
     "it starts with us": ("It Starts with Us", "Colleen Hoover"),
     "ugly love": ("Ugly Love", "Colleen Hoover"),
     "verity": ("Verity", "Colleen Hoover"),
     "november 9": ("November 9", "Colleen Hoover"),
     "reminders of him": ("Reminders of Him", "Colleen Hoover"),
     "confess": ("Confess", "Colleen Hoover"),
+    "coho": ("Colleen Hoover", "Colleen Hoover"),
+    # Ana Huang
     "twisted love": ("Twisted Love", "Ana Huang"),
     "twisted games": ("Twisted Games", "Ana Huang"),
     "twisted hate": ("Twisted Hate", "Ana Huang"),
@@ -29,114 +44,159 @@ KNOWN_BOOKS = {
     "king of pride": ("King of Pride", "Ana Huang"),
     "king of greed": ("King of Greed", "Ana Huang"),
     "king of sloth": ("King of Sloth", "Ana Huang"),
+    # Ali Hazelwood
     "the love hypothesis": ("The Love Hypothesis", "Ali Hazelwood"),
     "love on the brain": ("Love on the Brain", "Ali Hazelwood"),
     "check & mate": ("Check & Mate", "Ali Hazelwood"),
     "bride": ("Bride", "Ali Hazelwood"),
-    "butcher and blackbird": ("Butcher & Blackbird", "Brynne Weaver"),
-    "butcher & blackbird": ("Butcher & Blackbird", "Brynne Weaver"),
-    "the song of achilles": ("The Song of Achilles", "Madeline Miller"),
-    "song of achilles": ("The Song of Achilles", "Madeline Miller"),
-    "circe": ("Circe", "Madeline Miller"),
-    "the seven husbands of evelyn hugo": ("The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid"),
-    "seven husbands of evelyn hugo": ("The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid"),
-    "daisy jones and the six": ("Daisy Jones & The Six", "Taylor Jenkins Reid"),
-    "malibu rising": ("Malibu Rising", "Taylor Jenkins Reid"),
-    "the cruel prince": ("The Cruel Prince", "Holly Black"),
-    "the wicked king": ("The Wicked King", "Holly Black"),
-    "the queen of nothing": ("The Queen of Nothing", "Holly Black"),
-    "shatter me": ("Shatter Me", "Tahereh Mafi"),
-    "powerless": ("Powerless", "Lauren Roberts"),
-    "reckless": ("Reckless", "Lauren Roberts"),
-    "fearless": ("Fearless", "Lauren Roberts"),
-    "community": ("Community", "Lauren Roberts"),
-    "project hail mary": ("Project Hail Mary", "Andy Weir"),
-    "the name of the wind": ("The Name of the Wind", "Patrick Rothfuss"),
-    "the priory of the orange tree": ("The Priory of the Orange Tree", "Samantha Shannon"),
-    "throne of glass": ("Throne of Glass", "Sarah J. Maas"),
-    "house of earth and blood": ("House of Earth and Blood", "Sarah J. Maas"),
-    "crescent city": ("Crescent City", "Sarah J. Maas"),
-    "still beating": ("Still Beating", "Jennifer Hartmann"),
+    # H.D. Carlton
+    "haunting adeline": ("Haunting Adeline", "H.D. Carlton"),
+    "hunting adeline": ("Hunting Adeline", "H.D. Carlton"),
+    # Penelope Douglas
     "punk 57": ("Punk 57", "Penelope Douglas"),
     "credence": ("Credence", "Penelope Douglas"),
     "birthday girl": ("Birthday Girl", "Penelope Douglas"),
-    "god of malice": ("God of Malice", "Rina Kent"),
-    "god of pain": ("God of Pain", "Rina Kent"),
-    "god of wrath": ("God of Wrath", "Rina Kent"),
-    "god of ruin": ("God of Ruin", "Rina Kent"),
-    "pucking wrong": ("Pucking Wrong", "C.R. Jane & Mila Young"),
-    "lights out": ("Lights Out", "Navessa Allen"),
-    "nocticadia": ("Nocticadia", "Keri Lake"),
-    "brutal prince": ("Brutal Prince", "Sophie Lark"),
-    "brutal intentions": ("Brutal Intentions", "B. Celeste"),
-    "little stranger": ("Her Soul to Take", "Harley Laroux"),
-    "her soul to take": ("Her Soul to Take", "Harley Laroux"),
-    "the sword of kaigen": ("The Sword of Kaigen", "M.L. Wang"),
-    "the hero of ages": ("The Hero of Ages", "Brandon Sanderson"),
-    "the will of the many": ("The Will of the Many", "James Islington"),
-    "words of radiance": ("Words of Radiance", "Brandon Sanderson"),
-    "the way of kings": ("The Way of Kings", "Brandon Sanderson"),
-    "lies of locke lamora": ("The Lies of Locke Lamora", "Scott Lynch"),
-    "pillars of the earth": ("The Pillars of the Earth", "Ken Follett"),
-    "lonesome dove": ("Lonesome Dove", "Larry McMurtry"),
-    "run posy run": ("Run Posy Run", "Cate C. Wells"),
-    "the sweetest oblivion": ("The Sweetest Oblivion", "Danielle Lori"),
-    "my dark romeo": ("My Dark Romeo", "Parker S. Huntington & L.J. Shen"),
-    "my dark prince": ("My Dark Prince", "Parker S. Huntington & L.J. Shen"),
-    "crave": ("Crave", "Luna Mason"),
-    "false play": ("False Play", "Yinn Quirós"),
-    "meet me at the metro": ("Meet Me at the Metro", "Savanna Jade"),
-    "white nights": ("White Nights", "Fyodor Dostoevsky"),
-    "bunny": ("Bunny", "Mona Awad"),
-    "the secret history": ("The Secret History", "Donna Tartt"),
-    "normal people": ("Normal People", "Sally Rooney"),
+    "bully": ("Bully", "Penelope Douglas"),
+    # Emily Henry
     "beach read": ("Beach Read", "Emily Henry"),
     "people we meet on vacation": ("People We Meet on Vacation", "Emily Henry"),
     "book lovers": ("Book Lovers", "Emily Henry"),
     "happy place": ("Happy Place", "Emily Henry"),
     "funny story": ("Funny Story", "Emily Henry"),
-    "the atlas six": ("The Atlas Six", "Olivie Blake"),
+    # Madeline Miller
+    "the song of achilles": ("The Song of Achilles", "Madeline Miller"),
+    "song of achilles": ("The Song of Achilles", "Madeline Miller"),
+    "tsoa": ("The Song of Achilles", "Madeline Miller"),
+    "circe": ("Circe", "Madeline Miller"),
+    # Taylor Jenkins Reid
+    "the seven husbands of evelyn hugo": ("The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid"),
+    "seven husbands of evelyn hugo": ("The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid"),
+    "evelyn hugo": ("The Seven Husbands of Evelyn Hugo", "Taylor Jenkins Reid"),
+    "daisy jones and the six": ("Daisy Jones & The Six", "Taylor Jenkins Reid"),
+    "malibu rising": ("Malibu Rising", "Taylor Jenkins Reid"),
+    # Lauren Roberts
+    "powerless": ("Powerless", "Lauren Roberts"),
+    "reckless": ("Reckless", "Lauren Roberts"),
+    "fearless": ("Fearless", "Lauren Roberts"),
+    # Holly Black
+    "the cruel prince": ("The Cruel Prince", "Holly Black"),
+    "the wicked king": ("The Wicked King", "Holly Black"),
+    "the queen of nothing": ("The Queen of Nothing", "Holly Black"),
+    # Brynne Weaver
+    "butcher and blackbird": ("Butcher & Blackbird", "Brynne Weaver"),
+    "butcher & blackbird": ("Butcher & Blackbird", "Brynne Weaver"),
+    # Jennifer L. Armentrout
+    "from blood and ash": ("From Blood and Ash", "Jennifer L. Armentrout"),
+    "fbaa": ("From Blood and Ash", "Jennifer L. Armentrout"),
+    "a kingdom of flesh and fire": ("A Kingdom of Flesh and Fire", "Jennifer L. Armentrout"),
+    # Rina Kent
+    "god of malice": ("God of Malice", "Rina Kent"),
+    "god of pain": ("God of Pain", "Rina Kent"),
+    "god of wrath": ("God of Wrath", "Rina Kent"),
+    "god of ruin": ("God of Ruin", "Rina Kent"),
+    # Rebecca Ross
     "divine rivals": ("Divine Rivals", "Rebecca Ross"),
+    "ruthless vows": ("Ruthless Vows", "Rebecca Ross"),
+    # Misc popular
+    "the secret history": ("The Secret History", "Donna Tartt"),
+    "normal people": ("Normal People", "Sally Rooney"),
+    "the atlas six": ("The Atlas Six", "Olivie Blake"),
     "assistant to the villain": ("Assistant to the Villain", "Hannah Nicole Maehrer"),
+    "shatter me": ("Shatter Me", "Tahereh Mafi"),
+    "the invisible life of addie larue": ("The Invisible Life of Addie LaRue", "V.E. Schwab"),
+    "addie larue": ("The Invisible Life of Addie LaRue", "V.E. Schwab"),
+    "project hail mary": ("Project Hail Mary", "Andy Weir"),
+    "the name of the wind": ("The Name of the Wind", "Patrick Rothfuss"),
+    "still beating": ("Still Beating", "Jennifer Hartmann"),
+    "run posy run": ("Run Posy Run", "Cate C. Wells"),
+    "the sweetest oblivion": ("The Sweetest Oblivion", "Danielle Lori"),
+    "lights out": ("Lights Out", "Navessa Allen"),
+    "brutal prince": ("Brutal Prince", "Sophie Lark"),
+    "her soul to take": ("Her Soul to Take", "Harley Laroux"),
+    "false play": ("False Play", "Yinn Quirós"),
+    "bunny": ("Bunny", "Mona Awad"),
+    "the way of kings": ("The Way of Kings", "Brandon Sanderson"),
+    "words of radiance": ("Words of Radiance", "Brandon Sanderson"),
+    "the priory of the orange tree": ("The Priory of the Orange Tree", "Samantha Shannon"),
+    "house of salt and sorrows": ("House of Salt and Sorrows", "Erin A. Craig"),
+    "kingdom of the wicked": ("Kingdom of the Wicked", "Kerri Maniscalco"),
+    "kotw": ("Kingdom of the Wicked", "Kerri Maniscalco"),
+    "the spanish love deception": ("The Spanish Love Deception", "Elena Armas"),
+    "the deal": ("The Deal", "Elle Kennedy"),
+    "icebreaker": ("Icebreaker", "Hannah Grace"),
+    "wildfire": ("Wildfire", "Hannah Grace"),
+    "the fine print": ("The Fine Print", "Lauren Asher"),
+    "terms and conditions": ("Terms and Conditions", "Lauren Asher"),
+    "things we never got over": ("Things We Never Got Over", "Lucy Score"),
+    "things we hide from the light": ("Things We Hide from the Light", "Lucy Score"),
+    "the hating game": ("The Hating Game", "Sally Thorne"),
+    "the unhoneymooners": ("The Unhoneymooners", "Christina Lauren"),
+    "the kiss quotient": ("The Kiss Quotient", "Helen Hoang"),
+    "red white and royal blue": ("Red, White & Royal Blue", "Casey McQuiston"),
+    "rwrb": ("Red, White & Royal Blue", "Casey McQuiston"),
+    "the midnight library": ("The Midnight Library", "Matt Haig"),
+    "the house in the cerulean sea": ("The House in the Cerulean Sea", "TJ Klune"),
+    "heartstopper": ("Heartstopper", "Alice Oseman"),
+    "six of crows": ("Six of Crows", "Leigh Bardugo"),
+    "shadow and bone": ("Shadow and Bone", "Leigh Bardugo"),
+    "the poppy war": ("The Poppy War", "R.F. Kuang"),
+    "babel": ("Babel", "R.F. Kuang"),
+    "yellowface": ("Yellowface", "R.F. Kuang"),
+    "my dark romeo": ("My Dark Romeo", "Parker S. Huntington"),
+    "crave": ("Crave", "Tracy Wolff"),
+    "caraval": ("Caraval", "Stephanie Garber"),
+    "once upon a broken heart": ("Once Upon a Broken Heart", "Stephanie Garber"),
+    "the inheritance games": ("The Inheritance Games", "Jennifer Lynn Barnes"),
+    "a good girl's guide to murder": ("A Good Girl's Guide to Murder", "Holly Jackson"),
+    "we have always lived in the castle": ("We Have Always Lived in the Castle", "Shirley Jackson"),
+    "the silent patient": ("The Silent Patient", "Alex Michaelides"),
+    "where the crawdads sing": ("Where the Crawdads Sing", "Delia Owens"),
+    "the nightingale": ("The Nightingale", "Kristin Hannah"),
+    "the great alone": ("The Great Alone", "Kristin Hannah"),
+}
+
+# Short abbreviations that need word boundary matching to avoid false positives
+SHORT_ABBREVIATIONS = {
+    "fw", "cc", "tog", "iewu", "tsoa", "fbaa", "acosf", "acomaf",
+    "acowar", "acofas", "kotw", "rwrb", "coho",
 }
 
 
 def extract_books_from_text(text):
-    """Extract book mentions from a post's text."""
+    """Extract book mentions from post text."""
     if not text:
         return []
 
     found = []
     text_lower = text.lower()
+    seen = set()
 
-    # Match against known books
     for key, (title, author) in KNOWN_BOOKS.items():
-        if key in text_lower:
-            found.append((title, author))
+        if title.lower() in seen:
+            continue
 
-    # Pattern: "Title by Author" — capture title + author
-    by_pattern = re.findall(
-        r'📚[:\s]*([A-Z][A-Za-z\s\'\-&]+?)\s+by\s+([A-Z][A-Za-z\s\.\-&]+?)(?:\s{2,}|\n|#|$)',
+        if key in SHORT_ABBREVIATIONS:
+            if re.search(r'\b' + re.escape(key) + r'\b', text_lower):
+                seen.add(title.lower())
+                found.append({"title": title, "author": author})
+        else:
+            if key in text_lower:
+                seen.add(title.lower())
+                found.append({"title": title, "author": author})
+
+    # Pattern: "Title by Author"
+    by_matches = re.findall(
+        r'["\']?([A-Z][A-Za-z\s\'\-&:]+?)["\']?\s+by\s+([A-Z][A-Za-z\s.\-&]+?)(?:[,.\s]{2,}|\n|$)',
         text,
     )
-    for title, author in by_pattern:
+    for title, author in by_matches:
         title = title.strip().rstrip(" -")
         author = author.strip().rstrip(" -")
-        if len(title) > 3 and len(author) > 3:
-            normalized = title.lower()
-            if normalized not in KNOWN_BOOKS:
-                found.append((title, author))
+        if len(title) > 3 and len(author) > 3 and title.lower() not in seen:
+            seen.add(title.lower())
+            found.append({"title": title, "author": author})
 
-    # Deduplicate by title
-    seen = set()
-    unique = []
-    for title, author in found:
-        key = title.lower()
-        if key not in seen:
-            seen.add(key)
-            unique.append((title, author))
-
-    return unique
+    return found
 
 
 def extract_trending_books(posts, limit=15):
@@ -149,16 +209,18 @@ def extract_trending_books(posts, limit=15):
         "total_likes": 0,
         "total_comments": 0,
         "platforms": set(),
-        "sample_urls": [],
     })
 
     for post in posts:
-        books = extract_books_from_text(post.get("text", "") if isinstance(post, dict) else post.text)
-        for title, author in books:
+        text = post.get("text", "") if isinstance(post, dict) else (post.text or "")
+        books = extract_books_from_text(text)
+
+        for book in books:
+            title = book["title"]
             key = title.lower()
             stats = book_stats[key]
             stats["title"] = title
-            stats["author"] = author
+            stats["author"] = book["author"]
             stats["mentions"] += 1
 
             if isinstance(post, dict):
@@ -166,22 +228,16 @@ def extract_trending_books(posts, limit=15):
                 stats["total_likes"] += post.get("like_count", 0) or 0
                 stats["total_comments"] += post.get("comment_count", 0) or 0
                 stats["platforms"].add(post.get("platform", ""))
-                if post.get("url") and len(stats["sample_urls"]) < 3:
-                    stats["sample_urls"].append(post["url"])
             else:
                 stats["total_views"] += post.view_count or 0
                 stats["total_likes"] += post.like_count or 0
                 stats["total_comments"] += post.comment_count or 0
                 stats["platforms"].add(post.platform or "")
-                if post.url and len(stats["sample_urls"]) < 3:
-                    stats["sample_urls"].append(post.url)
 
-    # Score: weighted combination of mentions, views, likes
     ranked = []
-    for key, stats in book_stats.items():
+    for stats in book_stats.values():
         score = (
             stats["mentions"] * 1000
-            + stats["total_views"] * 0.001
             + stats["total_likes"] * 0.1
             + stats["total_comments"] * 0.5
         )
@@ -193,7 +249,6 @@ def extract_trending_books(posts, limit=15):
             "total_likes": stats["total_likes"],
             "total_comments": stats["total_comments"],
             "platforms": sorted(stats["platforms"]),
-            "sample_urls": stats["sample_urls"],
             "score": round(score, 2),
         })
 
