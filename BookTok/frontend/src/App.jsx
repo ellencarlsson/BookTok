@@ -3,7 +3,7 @@ import "./App.css";
 
 const API_BASE = "http://localhost:8000/api";
 const TABS = ["social", "websites"];
-const PLATFORMS = ["all", "reddit", "instagram", "tiktok"];
+const PLATFORMS = ["all", "reddit", "instagram", "tiktok", "youtube"];
 const SOURCES = [
   { id: "all", label: "All Sources" },
   { id: "goodreads-booktok", label: "Goodreads BookTok" },
