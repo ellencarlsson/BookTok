@@ -54,7 +54,11 @@ def this_month(
 ):
     """Return popular books from the last 30 days."""
     cutoff = datetime.now() - timedelta(days=30)
-    posts = db.query(RawPost).filter(RawPost.posted_at >= cutoff).all()
+    posts = (
+        db.query(RawPost)
+        .filter(RawPost.posted_at >= cutoff, RawPost.processed == 1)
+        .all()
+    )
     return _add_covers(extract_trending_books(posts, limit=limit))
 
 
@@ -64,5 +68,5 @@ def all_time(
     db: Session = Depends(get_db),
 ):
     """Return all-time popular BookTok books."""
-    posts = db.query(RawPost).all()
+    posts = db.query(RawPost).filter(RawPost.processed == 1).all()
     return _add_covers(extract_trending_books(posts, limit=limit))

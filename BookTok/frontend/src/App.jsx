@@ -85,6 +85,13 @@ function App() {
                   <span key={p} className={`platform-badge ${p}`}>{p}</span>
                 ))}
               </div>
+              {book.tropes && book.tropes.length > 0 && (
+                <div className="book-tropes">
+                  {book.tropes.slice(0, 5).map((t) => (
+                    <span key={t} className="trope-badge">{t}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="book-score">
               <span className="score-number">{formatNumber(book.score)}</span>

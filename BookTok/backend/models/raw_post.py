@@ -22,3 +22,4 @@ class RawPost(Base):
     posted_at = Column(TIMESTAMP)
     collected_at = Column(TIMESTAMP, server_default=func.now())
     processed = Column(Integer, default=0)
+    extracted_books = Column(JSON)

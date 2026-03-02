@@ -181,6 +181,22 @@ header h1 {
   text-transform: uppercase;
 }
 
+.book-tropes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.trope-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  background: #646cff15;
+  color: #a0a4ff;
+  border: 1px solid #646cff30;
+}
+
 .empty {
   text-align: center;
   color: #666;
