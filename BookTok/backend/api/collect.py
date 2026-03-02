@@ -7,6 +7,7 @@ from models.raw_post import RawPost
 from collectors.reddit import collect_reddit_data
 from collectors.tiktok import run_tiktok_collector
 from collectors.youtube import collect_youtube_data
+from collectors.websites import collect_website_data
 from services.ai_extractor import process_unprocessed_posts
 
 router = APIRouter(prefix="/api/collect", tags=["collect"])
@@ -30,6 +31,13 @@ def run_tiktok():
 def run_youtube_collector():
     """Trigger YouTube data collection."""
     count = collect_youtube_data()
+    return {"saved": count}
+
+
+@router.post("/websites")
+def run_websites_collector():
+    """Trigger website data collection."""
+    count = collect_website_data()
     return {"saved": count}
 
 
