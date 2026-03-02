@@ -1,12 +1,14 @@
 """Reddit data collector using public JSON API."""
 import logging
 import time
-from datetime import datetime
+from collections import defaultdict
+from datetime import date, datetime
 
 import httpx
 
 from core.database import SessionLocal
-from models.raw_post import RawPost
+from models.book import Book
+from models.trending import TrendingData
 from services.book_extractor import extract_books_from_text
 
 logger = logging.getLogger(__name__)
@@ -14,51 +16,43 @@ logger = logging.getLogger(__name__)
 SUBREDDITS = ["Booktokreddit"]
 POSTS_PER_PAGE = 100
 MIN_UPVOTES = 5
+MIN_COMMENT_SCORE = 2
 USER_AGENT = "BookTok/1.0 (book discovery platform)"
 REQUEST_DELAY = 2
 
 
 def collect_reddit_data():
-    """Fetch recent posts and comments from book subreddits."""
-    db = SessionLocal()
-    total_saved = 0
-    total_comments = 0
-    total_skipped = {"low_score": 0, "no_text": 0, "duplicate": 0}
+    """Fetch recent posts and comments, aggregate book mentions."""
+    book_agg = defaultdict(lambda: {
+        "title": "",
+        "author": "",
+        "mentions": 0,
+        "total_likes": 0,
+        "total_comments": 0,
+    })
+    seen_ids = set()
 
-    try:
-        for subreddit in SUBREDDITS:
-            saved, comments, skipped = _collect_subreddit(db, subreddit)
-            total_saved += saved
-            total_comments += comments
-            for key in total_skipped:
-                total_skipped[key] += skipped.get(key, 0)
-    except Exception:
-        logger.exception("Reddit collection failed")
-    finally:
-        db.close()
+    for subreddit in SUBREDDITS:
+        try:
+            _scan_subreddit(subreddit, seen_ids, book_agg)
+        except Exception:
+            logger.exception("Reddit collection failed for r/%s", subreddit)
 
-    logger.info(
-        "Reddit done: %d posts, %d comments saved, skipped: %s",
-        total_saved, total_comments, total_skipped,
-    )
-    return total_saved + total_comments
+    saved = _save_aggregated(book_agg)
+    logger.info("Reddit done: found %d books, saved %d", len(book_agg), saved)
+    return saved
 
 
-def _collect_subreddit(db, subreddit):
-    """Collect posts and their comments from a subreddit."""
-    saved = 0
-    comments_saved = 0
-    skipped = {"low_score": 0, "no_text": 0, "duplicate": 0}
-
+def _scan_subreddit(subreddit, seen_ids, book_agg):
+    """Scan posts and comments from a subreddit."""
     for sort in ["hot", "new", "top"]:
         try:
             params = {"limit": POSTS_PER_PAGE}
             if sort == "top":
                 params["t"] = "month"
 
-            url = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
             resp = httpx.get(
-                url,
+                f"https://www.reddit.com/r/{subreddit}/{sort}.json",
                 params=params,
                 headers={"User-Agent": USER_AGENT},
                 timeout=15,
@@ -74,78 +68,38 @@ def _collect_subreddit(db, subreddit):
             for item in posts:
                 post = item.get("data", {})
                 post_id = post.get("id", "")
+
+                if post_id in seen_ids:
+                    continue
+                seen_ids.add(post_id)
+
                 title = post.get("title", "")
                 selftext = post.get("selftext", "")
                 score = post.get("score", 0)
-                num_comments = post.get("num_comments", 0)
                 permalink = post.get("permalink", "")
 
                 text = f"{title}\n\n{selftext}".strip()
-
-                if len(text) < 15:
-                    skipped["no_text"] += 1
+                if len(text) < 15 or score < MIN_UPVOTES:
                     continue
 
-                if score < MIN_UPVOTES:
-                    skipped["low_score"] += 1
-                    continue
+                _extract_to_agg(text, score, post.get("num_comments", 0), book_agg)
 
-                existing = (
-                    db.query(RawPost)
-                    .filter_by(platform="reddit", platform_id=post_id)
-                    .first()
-                )
-                if existing:
-                    skipped["duplicate"] += 1
-                    continue
-
-                created_utc = post.get("created_utc")
-                posted_at = datetime.fromtimestamp(created_utc) if created_utc else None
-
-                books = extract_books_from_text(text)
-
-                raw_post = RawPost(
-                    platform="reddit",
-                    platform_id=post_id,
-                    author=post.get("author", ""),
-                    text=text,
-                    hashtags=[subreddit],
-                    view_count=0,
-                    like_count=score,
-                    comment_count=num_comments,
-                    share_count=0,
-                    url=f"https://www.reddit.com{permalink}",
-                    posted_at=posted_at,
-                    extracted_books=books,
-                    processed=1,
-                )
-                db.add(raw_post)
-                saved += 1
-
-                # Fetch comments for this post
-                if num_comments > 0:
+                # Scan comments
+                if post.get("num_comments", 0) > 0:
                     time.sleep(REQUEST_DELAY)
-                    c = _collect_comments(db, subreddit, post_id, permalink)
-                    comments_saved += c
+                    _scan_comments(permalink, seen_ids, book_agg)
 
-            db.commit()
             time.sleep(REQUEST_DELAY)
 
         except Exception:
-            db.rollback()
             logger.exception("Failed r/%s/%s", subreddit, sort)
 
-    logger.info("r/%s: %d posts, %d comments", subreddit, saved, comments_saved)
-    return saved, comments_saved, skipped
 
-
-def _collect_comments(db, subreddit, post_id, permalink):
-    """Fetch top-level comments for a post."""
-    saved = 0
+def _scan_comments(permalink, seen_ids, book_agg):
+    """Scan top-level comments for book mentions."""
     try:
-        url = f"https://www.reddit.com{permalink}.json"
         resp = httpx.get(
-            url,
+            f"https://www.reddit.com{permalink}.json",
             params={"limit": 50, "sort": "top"},
             headers={"User-Agent": USER_AGENT},
             timeout=15,
@@ -153,62 +107,99 @@ def _collect_comments(db, subreddit, post_id, permalink):
         )
 
         if resp.status_code != 200:
-            return 0
+            return
 
         data = resp.json()
         if len(data) < 2:
-            return 0
+            return
 
-        comments = data[1].get("data", {}).get("children", [])
-
-        for item in comments:
+        for item in data[1].get("data", {}).get("children", []):
             if item.get("kind") != "t1":
                 continue
 
             comment = item.get("data", {})
             comment_id = comment.get("id", "")
+
+            if comment_id in seen_ids:
+                continue
+            seen_ids.add(comment_id)
+
             body = comment.get("body", "")
             score = comment.get("score", 0)
 
-            if len(body) < 10 or score < 2:
+            if len(body) < 10 or score < MIN_COMMENT_SCORE:
                 continue
 
+            _extract_to_agg(body, score, 0, book_agg)
+
+    except Exception:
+        logger.exception("Failed comments for %s", permalink)
+
+
+def _extract_to_agg(text, likes, comments, book_agg):
+    """Extract books from text and add to aggregation."""
+    for book in extract_books_from_text(text):
+        key = book["title"].lower()
+        agg = book_agg[key]
+        agg["title"] = book["title"]
+        agg["author"] = book["author"]
+        agg["mentions"] += 1
+        agg["total_likes"] += likes
+        agg["total_comments"] += comments
+
+
+def _save_aggregated(book_agg):
+    """Save aggregated book data to books + trending_data tables."""
+    if not book_agg:
+        return 0
+
+    db = SessionLocal()
+    saved = 0
+    today = date.today()
+
+    try:
+        for stats in book_agg.values():
+            book = (
+                db.query(Book)
+                .filter_by(title=stats["title"], author=stats["author"])
+                .first()
+            )
+            if not book:
+                book = Book(title=stats["title"], author=stats["author"])
+                db.add(book)
+                db.flush()
+
+            score = (
+                stats["mentions"] * 1000
+                + stats["total_likes"] * 0.1
+                + stats["total_comments"] * 0.5
+            )
+
             existing = (
-                db.query(RawPost)
-                .filter_by(platform="reddit", platform_id=f"c_{comment_id}")
+                db.query(TrendingData)
+                .filter_by(book_id=book.id, date=today, platform="reddit")
                 .first()
             )
             if existing:
-                continue
+                existing.mention_count = stats["mentions"]
+                existing.trending_score = score
+            else:
+                db.add(TrendingData(
+                    book_id=book.id,
+                    date=today,
+                    mention_count=stats["mentions"],
+                    trending_score=score,
+                    platform="reddit",
+                ))
 
-            created_utc = comment.get("created_utc")
-            posted_at = datetime.fromtimestamp(created_utc) if created_utc else None
-
-            books = extract_books_from_text(body)
-
-            raw_post = RawPost(
-                platform="reddit",
-                platform_id=f"c_{comment_id}",
-                author=comment.get("author", ""),
-                text=body,
-                hashtags=[subreddit],
-                view_count=0,
-                like_count=score,
-                comment_count=0,
-                share_count=0,
-                url=f"https://www.reddit.com{permalink}{comment_id}/",
-                posted_at=posted_at,
-                extracted_books=books,
-                processed=1,
-            )
-            db.add(raw_post)
             saved += 1
 
         db.commit()
-
     except Exception:
         db.rollback()
-        logger.exception("Failed comments for %s", post_id)
+        logger.exception("Failed to save aggregated data")
+    finally:
+        db.close()
 
     return saved
 
@@ -216,4 +207,4 @@ def _collect_comments(db, subreddit, post_id, permalink):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     count = collect_reddit_data()
-    print(f"Collected {count} new Reddit posts/comments")
+    print(f"Saved {count} books from Reddit")

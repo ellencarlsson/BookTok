@@ -1,18 +1,18 @@
 """TikTok data collector using unofficial TikTokApi."""
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import datetime, timedelta, date
 
 from TikTokApi import TikTokApi
 
 from core.config import TIKTOK_MS_TOKEN
 from core.database import SessionLocal
-from models.raw_post import RawPost
+from models.book import Book
+from models.trending import TrendingData
 from services.book_extractor import extract_books_from_text
 
 logger = logging.getLogger(__name__)
-
-# --- Collection rules ---
 
 MONTH_NAMES = [
     "january", "february", "march", "april", "may", "june",
@@ -35,22 +35,28 @@ BOOKTOK_HASHTAGS = [
     "enemiestolovers",
 ]
 
+VIDEOS_PER_HASHTAG = 200
+MIN_VIEWS = 2_000
+MAX_AGE_DAYS = 30
+
 
 def _get_monthly_hashtags():
     """Generate monthly TBR hashtags based on current month."""
     month = MONTH_NAMES[datetime.now().month - 1]
     return [f"{month}tbr", f"{month}bookhaul", f"{month}wrapup"]
 
-VIDEOS_PER_HASHTAG = 200
-MIN_VIEWS = 2_000
-MAX_AGE_DAYS = 30
-
 
 async def collect_tiktok_data():
-    """Fetch recent BookTok videos and store as raw posts."""
-    db = SessionLocal()
-    total_saved = 0
-    total_skipped = {"old": 0, "low_views": 0, "no_text": 0, "duplicate": 0}
+    """Fetch recent BookTok videos and aggregate book mentions."""
+    book_agg = defaultdict(lambda: {
+        "title": "",
+        "author": "",
+        "mentions": 0,
+        "total_likes": 0,
+        "total_comments": 0,
+    })
+    total_videos = 0
+    seen_ids = set()
 
     try:
         async with TikTokApi() as api:
@@ -61,108 +67,127 @@ async def collect_tiktok_data():
             )
 
             all_hashtags = BOOKTOK_HASHTAGS + _get_monthly_hashtags()
+            cutoff = datetime.now() - timedelta(days=MAX_AGE_DAYS)
+
             for tag_name in all_hashtags:
-                logger.info("Collecting videos for #%s", tag_name)
-                saved, skipped = await _collect_hashtag(api, db, tag_name)
-                total_saved += saved
-                for key in total_skipped:
-                    total_skipped[key] += skipped.get(key, 0)
+                logger.info("Scanning #%s", tag_name)
+                count = await _scan_hashtag(
+                    api, tag_name, cutoff, seen_ids, book_agg,
+                )
+                total_videos += count
 
     except Exception:
         logger.exception("TikTok collection failed")
-    finally:
-        db.close()
 
+    saved = _save_aggregated(book_agg)
     logger.info(
-        "TikTok collection done: %d saved, skipped: %s",
-        total_saved,
-        total_skipped,
+        "TikTok done: scanned %d videos, found %d books, saved %d",
+        total_videos, len(book_agg), saved,
     )
-    return total_saved
+    return saved
 
 
-async def _collect_hashtag(api, db, tag_name):
-    """Collect videos for a single hashtag with filtering."""
-    saved = 0
-    skipped = {"old": 0, "low_views": 0, "no_text": 0, "duplicate": 0}
-    cutoff_date = datetime.now() - timedelta(days=MAX_AGE_DAYS)
-
+async def _scan_hashtag(api, tag_name, cutoff, seen_ids, book_agg):
+    """Scan videos for a hashtag and aggregate book mentions."""
+    count = 0
     try:
         hashtag = api.hashtag(name=tag_name)
 
         async for video in hashtag.videos(count=VIDEOS_PER_HASHTAG):
             data = video.as_dict
             video_id = str(data.get("id", ""))
-            stats = data.get("stats", {})
-            desc = data.get("desc", "")
-            create_time = data.get("createTime")
 
-            # Filter: skip videos with no text
+            if video_id in seen_ids:
+                continue
+            seen_ids.add(video_id)
+
+            desc = data.get("desc", "")
             if not desc or len(desc.strip()) < 10:
-                skipped["no_text"] += 1
                 continue
 
-            posted_at = None
+            create_time = data.get("createTime")
             if create_time:
-                posted_at = datetime.fromtimestamp(int(create_time))
-                if posted_at < cutoff_date:
-                    skipped["old"] += 1
+                if datetime.fromtimestamp(int(create_time)) < cutoff:
                     continue
 
-            # Filter: skip low engagement
-            view_count = stats.get("playCount", 0)
-            if view_count < MIN_VIEWS:
-                skipped["low_views"] += 1
+            stats = data.get("stats", {})
+            if stats.get("playCount", 0) < MIN_VIEWS:
                 continue
 
-            # Filter: skip duplicates
-            existing = (
-                db.query(RawPost)
-                .filter_by(platform="tiktok", platform_id=video_id)
-                .first()
-            )
-            if existing:
-                skipped["duplicate"] += 1
-                continue
-
-            author_info = data.get("author", {})
+            count += 1
             hashtags = [h.get("hashtagName", "") for h in data.get("challenges", [])]
-
-            # Combine description + hashtags for better text matching
             hashtag_text = " ".join(f"#{h}" for h in hashtags if h)
             full_text = f"{desc}\n{hashtag_text}".strip()
 
-            books = extract_books_from_text(full_text)
+            for book in extract_books_from_text(full_text):
+                key = book["title"].lower()
+                agg = book_agg[key]
+                agg["title"] = book["title"]
+                agg["author"] = book["author"]
+                agg["mentions"] += 1
+                agg["total_likes"] += stats.get("diggCount", 0)
+                agg["total_comments"] += stats.get("commentCount", 0)
 
-            raw_post = RawPost(
-                platform="tiktok",
-                platform_id=video_id,
-                author=author_info.get("uniqueId", ""),
-                text=full_text,
-                hashtags=hashtags,
-                view_count=view_count,
-                like_count=stats.get("diggCount", 0),
-                comment_count=stats.get("commentCount", 0),
-                share_count=stats.get("shareCount", 0),
-                url=f"https://www.tiktok.com/@{author_info.get('uniqueId', '')}/video/{video_id}",
-                posted_at=posted_at,
-                extracted_books=books,
-                processed=1,
+    except Exception:
+        logger.exception("Failed to scan #%s", tag_name)
+
+    return count
+
+
+def _save_aggregated(book_agg):
+    """Save aggregated book data to books + trending_data tables."""
+    if not book_agg:
+        return 0
+
+    db = SessionLocal()
+    saved = 0
+    today = date.today()
+
+    try:
+        for stats in book_agg.values():
+            book = (
+                db.query(Book)
+                .filter_by(title=stats["title"], author=stats["author"])
+                .first()
             )
-            db.add(raw_post)
+            if not book:
+                book = Book(title=stats["title"], author=stats["author"])
+                db.add(book)
+                db.flush()
+
+            score = (
+                stats["mentions"] * 1000
+                + stats["total_likes"] * 0.1
+                + stats["total_comments"] * 0.5
+            )
+
+            existing = (
+                db.query(TrendingData)
+                .filter_by(book_id=book.id, date=today, platform="tiktok")
+                .first()
+            )
+            if existing:
+                existing.mention_count = stats["mentions"]
+                existing.trending_score = score
+            else:
+                db.add(TrendingData(
+                    book_id=book.id,
+                    date=today,
+                    mention_count=stats["mentions"],
+                    trending_score=score,
+                    platform="tiktok",
+                ))
+
             saved += 1
 
         db.commit()
-        logger.info(
-            "#%s: saved %d, skipped %s",
-            tag_name, saved, skipped,
-        )
-
     except Exception:
         db.rollback()
-        logger.exception("Failed to collect #%s", tag_name)
+        logger.exception("Failed to save aggregated data")
+    finally:
+        db.close()
 
-    return saved, skipped
+    return saved
 
 
 def run_tiktok_collector():
@@ -173,4 +198,4 @@ def run_tiktok_collector():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     count = run_tiktok_collector()
-    print(f"Collected {count} new TikTok posts")
+    print(f"Saved {count} books from TikTok")

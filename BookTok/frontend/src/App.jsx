@@ -7,18 +7,17 @@ const PLATFORMS = ["all", "reddit", "instagram", "tiktok"];
 function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("this-month");
   const [platform, setPlatform] = useState("all");
 
   useEffect(() => {
     fetchBooks();
-  }, [tab, platform]);
+  }, [platform]);
 
   async function fetchBooks() {
     setLoading(true);
     try {
       const platformParam = platform !== "all" ? `&platform=${platform}` : "";
-      const res = await fetch(`${API_BASE}/trending/${tab}?limit=15${platformParam}`);
+      const res = await fetch(`${API_BASE}/trending/this-month?limit=15${platformParam}`);
       setBooks(await res.json());
     } catch (err) {
       console.error("Failed to fetch:", err);
@@ -39,21 +38,6 @@ function App() {
         <h1>BookTok</h1>
         <p className="subtitle">Popular books on social media right now</p>
       </header>
-
-      <div className="tabs">
-        <button
-          className={`tab ${tab === "this-month" ? "active" : ""}`}
-          onClick={() => setTab("this-month")}
-        >
-          This Month
-        </button>
-        <button
-          className={`tab ${tab === "all-time" ? "active" : ""}`}
-          onClick={() => setTab("all-time")}
-        >
-          All Time
-        </button>
-      </div>
 
       <div className="platform-filters">
         {PLATFORMS.map((p) => (
@@ -86,8 +70,6 @@ function App() {
                 <p className="book-author">by {book.author}</p>
                 <div className="book-stats">
                   <span className="book-mentions">{book.mentions} mentions</span>
-                  <span>{formatNumber(book.total_likes)} likes</span>
-                  <span>{formatNumber(book.total_comments)} comments</span>
                 </div>
                 <div className="book-platforms">
                   {book.platforms.map((p) => (

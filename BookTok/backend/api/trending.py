@@ -1,14 +1,15 @@
 """Trending books endpoint."""
 import logging
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from models.raw_post import RawPost
-from services.book_extractor import extract_trending_books
+from models.book import Book
+from models.trending import TrendingData
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/trending", tags=["trending"])
@@ -23,10 +24,9 @@ def _fetch_cover(title, author):
         return _cover_cache[key]
 
     try:
-        query = f"{title} {author}"
         resp = httpx.get(
             "https://openlibrary.org/search.json",
-            params={"q": query, "limit": 1},
+            params={"q": f"{title} {author}", "limit": 1},
             timeout=5,
         )
         docs = resp.json().get("docs", [])
@@ -41,10 +41,43 @@ def _fetch_cover(title, author):
     return None
 
 
-def _add_covers(books):
-    for book in books:
-        book["cover_url"] = _fetch_cover(book["title"], book["author"])
-    return books
+def _query_trending(db, limit, platform=None, cutoff=None):
+    """Query trending books from the database."""
+    query = (
+        db.query(
+            Book.title,
+            Book.author,
+            func.sum(TrendingData.mention_count).label("mentions"),
+            func.sum(TrendingData.trending_score).label("score"),
+            func.group_concat(TrendingData.platform.distinct()).label("platforms"),
+        )
+        .join(TrendingData, Book.id == TrendingData.book_id)
+    )
+
+    if cutoff:
+        query = query.filter(TrendingData.date >= cutoff)
+    if platform:
+        query = query.filter(TrendingData.platform == platform)
+
+    rows = (
+        query
+        .group_by(Book.id)
+        .order_by(func.sum(TrendingData.trending_score).desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        {
+            "title": row.title,
+            "author": row.author,
+            "mentions": int(row.mentions),
+            "score": round(float(row.score), 2),
+            "platforms": sorted(row.platforms.split(",")) if row.platforms else [],
+            "cover_url": _fetch_cover(row.title, row.author),
+        }
+        for row in rows
+    ]
 
 
 @router.get("/this-month")
@@ -53,22 +86,8 @@ def this_month(
     platform: str = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Return popular books from the last 30 days, optionally filtered by platform."""
-    cutoff = datetime.now() - timedelta(days=30)
-    query = db.query(RawPost).filter(RawPost.posted_at >= cutoff)
-    if platform:
-        query = query.filter(RawPost.platform == platform)
-    return _add_covers(extract_trending_books(query.all(), limit=limit))
+    """Return popular books from the last 30 days."""
+    cutoff = date.today() - timedelta(days=30)
+    return _query_trending(db, limit, platform=platform, cutoff=cutoff)
 
 
-@router.get("/all-time")
-def all_time(
-    limit: int = Query(15, le=50),
-    platform: str = Query(None),
-    db: Session = Depends(get_db),
-):
-    """Return all-time popular BookTok books, optionally filtered by platform."""
-    query = db.query(RawPost)
-    if platform:
-        query = query.filter(RawPost.platform == platform)
-    return _add_covers(extract_trending_books(query.all(), limit=limit))
