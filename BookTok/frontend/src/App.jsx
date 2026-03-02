@@ -86,7 +86,7 @@ function App() {
                 <p className="book-author">by {book.author}</p>
                 <div className="book-stats">
                   <span className="book-mentions">{book.mentions} mentions</span>
-                  <span>{formatNumber(book.total_likes)} upvotes</span>
+                  <span>{formatNumber(book.total_likes)} likes</span>
                   <span>{formatNumber(book.total_comments)} comments</span>
                 </div>
                 <div className="book-platforms">

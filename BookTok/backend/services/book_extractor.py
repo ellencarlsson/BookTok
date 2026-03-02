@@ -153,6 +153,62 @@ KNOWN_BOOKS = {
     "where the crawdads sing": ("Where the Crawdads Sing", "Delia Owens"),
     "the nightingale": ("The Nightingale", "Kristin Hannah"),
     "the great alone": ("The Great Alone", "Kristin Hannah"),
+    "say nothing": ("Say Nothing", "Patrick Radden Keefe"),
+    # Scarlett St. Clair
+    "a touch of darkness": ("A Touch of Darkness", "Scarlett St. Clair"),
+    "a touch of chaos": ("A Touch of Chaos", "Scarlett St. Clair"),
+    # Mariana Zapata
+    "from lukov with love": ("From Lukov with Love", "Mariana Zapata"),
+    "when gracie met the grump": ("When Gracie Met the Grump", "Mariana Zapata"),
+    # Michelle Naomi Mosley
+    "rare blend": ("Rare Blend", "Michelle Naomi Mosley"),
+    "double barrel": ("Double Barrel", "Michelle Naomi Mosley"),
+    "bottle shock": ("Bottle Shock", "Michelle Naomi Mosley"),
+    # Misc BookTok popular
+    "beneath": ("Beneath", "Ariel Sullivan"),
+    "lovestruck": ("Lovestruck", "Ivy Dawes"),
+    "luxuria": ("Luxuria", "Colette Rhodes"),
+    "sweet venom": ("Sweet Venom", "Rina Kent"),
+    "rewind it back": ("Rewind It Back", "Liz Tomforde"),
+    "clutch and shift": ("Clutch and Shift", "Brittany Ann"),
+    "never lie": ("Never Lie", "Freida McFadden"),
+    "the wedding people": ("The Wedding People", "Alison Espach"),
+    "the selection": ("The Selection", "Kiera Cass"),
+    "love song": ("Love Song", "Elle Kennedy"),
+    "wildest dreams": ("Wildest Dreams", "LJ Shen"),
+    "rival darling": ("Rival Darling", "Alexandra Moody"),
+    "starside": ("Starside", "Alex Aster"),
+    "boys of brayshaw": ("Boys of Brayshaw", "Meagan Brandy"),
+    "his pretty little burden": ("His Pretty Little Burden", "Nicci Harris"),
+    "ruthless titan": ("Ruthless Titan", "E.V. Olsen"),
+    "scars of you": ("Scars of You", "Madi Danielle"),
+    "instinct": ("Instinct", "Luna Mason"),
+    "almost rotten": ("Almost Rotten", "Abby Millsaps"),
+    "too safe": ("Too Safe", "Abby Millsaps"),
+    "whisper sweet nothings": ("Whisper Sweet Nothings", "Laura Pavlov"),
+    "within range": ("Within Range", "Ruth Stilling"),
+    "storms of secrets and sorrow": ("Storms of Secrets and Sorrow", "Melissa K. Roehrich"),
+    "otherworldly": ("Otherworldly", "F.T. Lukens"),
+    # Dark/spicy romance
+    "the mindf series": ("The MindF Series", "S.T. Abby"),
+    "midnight message": ("Midnight Message", "Avina St. Graves"),
+    "her soul to take": ("Her Soul to Take", "Harley Laroux"),
+    # Classics & literary
+    "pride and prejudice": ("Pride and Prejudice", "Jane Austen"),
+    "dracula": ("Dracula", "Bram Stoker"),
+    "gone girl": ("Gone Girl", "Gillian Flynn"),
+    "ready player one": ("Ready Player One", "Ernest Cline"),
+    "bury my heart at wounded knee": ("Bury My Heart at Wounded Knee", "Dee Brown"),
+    "the spear cuts through water": ("The Spear Cuts Through Water", "Simon Jimenez"),
+    "dragonfly in amber": ("Dragonfly in Amber", "Diana Gabaldon"),
+    "the bright years": ("The Bright Years", "Sarah Damoff"),
+    "the deep": ("The Deep", "Rivers Solomon"),
+    "razorblade tears": ("Razorblade Tears", "S.A. Crosby"),
+    "devolution": ("Devolution", "Max Brooks"),
+    "the weight of blood": ("The Weight of Blood", "Tiffany D. Jackson"),
+    "good spirits": ("Good Spirits", "B.K. Borison"),
+    "we'll prescribe you a cat": ("We'll Prescribe You a Cat", "Syou Ishida"),
+    "playground": ("Playground", "Aron Beauregard"),
 }
 
 # Short abbreviations that need word boundary matching to avoid false positives
@@ -192,7 +248,13 @@ def extract_books_from_text(text):
     for title, author in by_matches:
         title = title.strip().rstrip(" -")
         author = author.strip().rstrip(" -")
-        if len(title) > 3 and len(author) > 3 and title.lower() not in seen:
+        if (
+            len(title) > 3
+            and len(title) <= 60
+            and len(title.split()) <= 6
+            and len(author) > 3
+            and title.lower() not in seen
+        ):
             seen.add(title.lower())
             found.append({"title": title, "author": author})
 
