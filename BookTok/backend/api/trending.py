@@ -50,19 +50,25 @@ def _add_covers(books):
 @router.get("/this-month")
 def this_month(
     limit: int = Query(15, le=50),
+    platform: str = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Return popular books from the last 30 days."""
+    """Return popular books from the last 30 days, optionally filtered by platform."""
     cutoff = datetime.now() - timedelta(days=30)
-    posts = db.query(RawPost).filter(RawPost.posted_at >= cutoff).all()
-    return _add_covers(extract_trending_books(posts, limit=limit))
+    query = db.query(RawPost).filter(RawPost.posted_at >= cutoff)
+    if platform:
+        query = query.filter(RawPost.platform == platform)
+    return _add_covers(extract_trending_books(query.all(), limit=limit))
 
 
 @router.get("/all-time")
 def all_time(
     limit: int = Query(15, le=50),
+    platform: str = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Return all-time popular BookTok books."""
-    posts = db.query(RawPost).all()
-    return _add_covers(extract_trending_books(posts, limit=limit))
+    """Return all-time popular BookTok books, optionally filtered by platform."""
+    query = db.query(RawPost)
+    if platform:
+        query = query.filter(RawPost.platform == platform)
+    return _add_covers(extract_trending_books(query.all(), limit=limit))
