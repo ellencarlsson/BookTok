@@ -1,7 +1,7 @@
 """TikTok data collector using unofficial TikTokApi."""
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from TikTokApi import TikTokApi
 
@@ -42,14 +42,13 @@ def _get_monthly_hashtags():
 
 VIDEOS_PER_HASHTAG = 50
 MIN_VIEWS = 2_000
-MAX_AGE_DAYS = 30
 
 
 async def collect_tiktok_data():
     """Fetch recent BookTok videos and store as raw posts."""
     db = SessionLocal()
     total_saved = 0
-    total_skipped = {"old": 0, "low_views": 0, "no_text": 0, "duplicate": 0}
+    total_skipped = {"low_views": 0, "no_text": 0, "duplicate": 0}
 
     try:
         async with TikTokApi() as api:
@@ -83,8 +82,7 @@ async def collect_tiktok_data():
 async def _collect_hashtag(api, db, tag_name):
     """Collect videos for a single hashtag with filtering."""
     saved = 0
-    skipped = {"old": 0, "low_views": 0, "no_text": 0, "duplicate": 0}
-    cutoff_date = datetime.now() - timedelta(days=MAX_AGE_DAYS)
+    skipped = {"low_views": 0, "no_text": 0, "duplicate": 0}
 
     try:
         hashtag = api.hashtag(name=tag_name)
@@ -101,13 +99,9 @@ async def _collect_hashtag(api, db, tag_name):
                 skipped["no_text"] += 1
                 continue
 
-            # Filter: skip old videos
             posted_at = None
             if create_time:
                 posted_at = datetime.fromtimestamp(int(create_time))
-                if posted_at < cutoff_date:
-                    skipped["old"] += 1
-                    continue
 
             # Filter: skip low engagement
             view_count = stats.get("playCount", 0)
