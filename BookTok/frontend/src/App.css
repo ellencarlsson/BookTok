@@ -163,6 +163,34 @@ header h1 {
 .platform-badge.instagram { background: #e1306c20; color: #e1306c; }
 .platform-badge.youtube { background: #ff000020; color: #ff0000; }
 
+/* Tab filters */
+.tab-filters {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.tab-filter {
+  background: transparent;
+  color: #666;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.6rem 1.5rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.tab-filter:hover { color: #fff; border-color: #555; }
+.tab-filter.active {
+  background: #646cff;
+  color: #fff;
+  border-color: #646cff;
+  font-weight: 700;
+}
+
 /* Platform filters */
 .platform-filters {
   display: flex;
