@@ -224,6 +224,7 @@ header h1 {
 .platform-filter.active.reddit { background: #ff450020; color: #ff4500; border-color: #ff4500; }
 .platform-filter.active.instagram { background: #e1306c20; color: #e1306c; border-color: #e1306c; }
 .platform-filter.active.tiktok { background: #ff005020; color: #ff0050; border-color: #ff0050; }
+.platform-filter.active.youtube { background: #ff000020; color: #ff0000; border-color: #ff0000; }
 .platform-filter.active.goodreads-booktok { background: #5c3d2e20; color: #d4a574; border-color: #d4a574; }
 .platform-filter.active.hudson-booksellers { background: #1a6b3c20; color: #4ade80; border-color: #4ade80; }
 

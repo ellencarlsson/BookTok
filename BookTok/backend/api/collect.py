@@ -6,6 +6,7 @@ from core.database import get_db
 from models.raw_post import RawPost
 from collectors.reddit import collect_reddit_data
 from collectors.tiktok import run_tiktok_collector
+from collectors.youtube import collect_youtube_data
 from services.ai_extractor import process_unprocessed_posts
 
 router = APIRouter(prefix="/api/collect", tags=["collect"])
@@ -22,6 +23,13 @@ def run_reddit_collector():
 def run_tiktok():
     """Trigger TikTok data collection."""
     count = run_tiktok_collector()
+    return {"saved": count}
+
+
+@router.post("/youtube")
+def run_youtube_collector():
+    """Trigger YouTube data collection."""
+    count = collect_youtube_data()
     return {"saved": count}
 
 
@@ -65,8 +73,10 @@ def collection_stats(db: Session = Depends(get_db)):
     total = db.query(RawPost).count()
     reddit = db.query(RawPost).filter_by(platform="reddit").count()
     tiktok = db.query(RawPost).filter_by(platform="tiktok").count()
+    youtube = db.query(RawPost).filter_by(platform="youtube").count()
     return {
         "total": total,
         "reddit": reddit,
         "tiktok": tiktok,
+        "youtube": youtube,
     }
