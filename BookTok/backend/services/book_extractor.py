@@ -1,6 +1,11 @@
 """Extract trending books from raw posts using text matching."""
+import logging
 import re
 from collections import defaultdict
+
+from services.book_validator import validate_book
+
+logger = logging.getLogger(__name__)
 
 
 KNOWN_BOOKS = {
@@ -246,28 +251,28 @@ def extract_books_from_text(text):
         r'["\']?([A-Z][A-Za-z\s\'\-&:]+?)["\']?\s+by\s+([A-Z][A-Za-z\s.]+?)(?:\s*[-,#\n]|$)',
         text,
     )
-    noise_starts = {
-        "your", "my", "its", "this", "that", "just", "also", "then",
-        "from", "with", "have", "been", "will", "would", "could",
-        "should", "really", "currently", "recently", "finally",
-        "honestly", "literally", "definitely", "absolutely",
-        "started", "finished", "reading", "loved", "read",
-        "book", "books", "series",
-    }
     for title, author in by_matches:
         title = title.strip().rstrip(" -")
         author = author.strip().rstrip(" -")
-        first_word = title.split()[0].lower() if title.split() else ""
-        if (
-            len(title) > 3
-            and len(title) <= 60
-            and len(title.split()) <= 6
-            and len(author) > 3
-            and first_word not in noise_starts
-            and title.lower() not in seen
-        ):
-            seen.add(title.lower())
-            found.append({"title": title, "author": author})
+        if len(title) <= 3 or len(author) <= 3 or title.lower() in seen:
+            continue
+
+        validated = validate_book(title, author)
+        if validated:
+            seen.add(validated["title"].lower())
+            found.append(validated)
+            continue
+
+        # Try trimming — the real title might be at the end
+        words = title.split()
+        for start in range(1, len(words)):
+            shorter = " ".join(words[start:])
+            if len(shorter) > 3 and len(words[start:]) >= 2:
+                validated = validate_book(shorter, author)
+                if validated and validated["title"].lower() not in seen:
+                    seen.add(validated["title"].lower())
+                    found.append(validated)
+                    break
 
     return found
 
